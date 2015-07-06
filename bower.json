@@ -1,0 +1,10 @@
+{
+  "name": "tng",
+  "version": "0.0.8",
+  "main": "./tng.js",
+  "ignore": [],
+  "dependencies": {
+    "angular": "1.4.0",
+    "reflect-metadata": "0.1.0"
+  }
+}
