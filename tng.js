@@ -79,7 +79,7 @@ exports.registerAnimation = registerAnimation;
 
 },{"./di":"tng/di","./reflection":"tng/reflection","./utils":"tng/utils"}],"tng/application":[function(require,module,exports){
 /// <reference path="./_references" />
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -156,7 +156,7 @@ exports.bootstrap = bootstrap;
 
 },{"./assert":"tng/assert","./module":"tng/module","./reflection":"tng/reflection"}],"tng/component-view":[function(require,module,exports){
 /// <reference path="./_references" />
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -186,7 +186,7 @@ exports.ComponentView = utils_1.makeDecorator(ComponentViewAnnotation);
 
 },{"./utils":"tng/utils","./view":"tng/view"}],"tng/component":[function(require,module,exports){
 /// <reference path="./_references" />
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -353,7 +353,7 @@ exports.publishDecorator = publishDecorator;
 
 },{"./di":"tng/di","./reflection":"tng/reflection","./utils":"tng/utils"}],"tng/directive":[function(require,module,exports){
 /// <reference path="./_references" />
-var __extends = this.__extends || function (d, b) {
+var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
     __.prototype = b.prototype;
@@ -870,6 +870,12 @@ function translateToUiState(state) {
         translatedState.url = state.url;
     if (utils_1.isDefined(state.abstract))
         translatedState.abstract = state.abstract;
+    if (utils_1.isDefined(state.reloadOnSearch))
+        translatedState.reloadOnSearch = state.reloadOnSearch;
+    if (utils_1.isDefined(state.onEnter))
+        translatedState.onEnter = state.onEnter;
+    if (utils_1.isDefined(state.onExit))
+        translatedState.onExit = state.onExit;
     if (utils_1.isDefined(state.parent)) {
         var parent_1 = state.parent;
         if (!utils_1.isString(parent_1)) {
