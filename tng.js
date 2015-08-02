@@ -883,13 +883,7 @@ function translateToUiState(state) {
         }
         translatedState.parent = parent_1;
     }
-    if (state.view && state.views) {
-        throw Error('Cannot provide both view and views');
-    }
-    else if (!state.view && !state.views) {
-        throw Error('Must provide either view or views');
-    }
-    else {
+    if (state.view || state.views) {
         var views = {};
         if (state.view) {
             views[''] = extractViewData(state.view);
