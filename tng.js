@@ -1,5 +1,40 @@
 require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-/// <reference path="../_references" />
+/// <reference path="../_references.ts" />
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    __.prototype = b.prototype;
+    d.prototype = new __();
+};
+var utils_1 = require('../utils');
+var view_1 = require('../view');
+(function (ModalBackdrop) {
+    ModalBackdrop[ModalBackdrop["Show"] = 0] = "Show";
+    ModalBackdrop[ModalBackdrop["Hide"] = 1] = "Hide";
+    ModalBackdrop[ModalBackdrop["Static"] = 2] = "Static";
+})(exports.ModalBackdrop || (exports.ModalBackdrop = {}));
+var ModalBackdrop = exports.ModalBackdrop;
+exports.MODAL_BACKDROP_MAP = [true, false, 'static'];
+var ModalViewAnnotation = (function (_super) {
+    __extends(ModalViewAnnotation, _super);
+    function ModalViewAnnotation(options) {
+        _super.call(this, options);
+        this.animation = void 0;
+        this.backdrop = void 0;
+        this.backdropClass = void 0;
+        this.keyboard = void 0;
+        this.windowClass = void 0;
+        this.windowTemplateUrl = void 0;
+        this.size = void 0;
+        utils_1.setIfInterface(this, options);
+    }
+    return ModalViewAnnotation;
+})(view_1.ViewAnnotation);
+exports.ModalViewAnnotation = ModalViewAnnotation;
+exports.ModalView = utils_1.makeDecorator(ModalViewAnnotation);
+
+},{"../utils":"tng/utils","../view":"tng/view"}],2:[function(require,module,exports){
+/// <reference path="../_references.ts" />
 var utils_1 = require('../utils');
 var reflection_1 = require('../reflection');
 var di_1 = require('../di');
@@ -155,7 +190,7 @@ function bootstrap(moduleClass, element) {
 exports.bootstrap = bootstrap;
 
 },{"./assert":"tng/assert","./module":"tng/module","./reflection":"tng/reflection"}],"tng/component-view":[function(require,module,exports){
-/// <reference path="./_references" />
+/// <reference path="./_references.ts" />
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -185,7 +220,7 @@ exports.ComponentViewAnnotation = ComponentViewAnnotation;
 exports.ComponentView = utils_1.makeDecorator(ComponentViewAnnotation);
 
 },{"./utils":"tng/utils","./view":"tng/view"}],"tng/component":[function(require,module,exports){
-/// <reference path="./_references" />
+/// <reference path="./_references.ts" />
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -795,10 +830,11 @@ function publishService(serviceClass, ngModule, name) {
 exports.publishService = publishService;
 
 },{"./assert":"tng/assert","./reflection":"tng/reflection","./utils":"tng/utils"}],"tng/ui-router/routes":[function(require,module,exports){
-/// <reference path="../_references" />
+/// <reference path="../_references.ts" />
 var di_1 = require('../di');
 var utils_1 = require('../utils');
 var reflection_1 = require('../reflection');
+/// <reference path="../_references.ts" />
 var RoutesAnnotation = (function () {
     function RoutesAnnotation(routes) {
         this.routes = routes;
@@ -827,12 +863,13 @@ function registerRoutes(moduleController, ngModule) {
 exports.registerRoutes = registerRoutes;
 
 },{"../di":"tng/di","../reflection":"tng/reflection","../utils":"tng/utils"}],"tng/ui-router/states":[function(require,module,exports){
-/// <reference path="../_references" />
+/// <reference path="../_references.ts" />
 var di_1 = require('../di');
 var utils_1 = require('../utils');
 var reflection_1 = require('../reflection');
 var view_1 = require('../view');
 var events_1 = require('./events');
+var modal_1 = require('../ui-bootstrap/modal');
 var StatesAnnotation = (function () {
     function StatesAnnotation(states) {
         utils_1.forEach(states, function (state, name) { return state.name = name; });
@@ -893,6 +930,29 @@ function translateToUiState(state) {
         }
         translatedState.views = views;
     }
+    else if (state.modal) {
+        var handler = modal_1.getModalHandler(state.modal);
+        if (translatedState.onEnter) {
+            var onEnter = translatedState.onEnter;
+            translatedState.onEnter = di_1.bind(['$injector'], function ($injector) {
+                $injector.invoke(onEnter);
+                $injector.invoke(handler.open, handler);
+            });
+        }
+        else {
+            translatedState.onEnter = utils_1.safeBind(handler.open, handler);
+        }
+        if (translatedState.onExit) {
+            var onExit = translatedState.onExit;
+            translatedState.onExit = di_1.bind(['$injector'], function ($injector) {
+                $injector.invoke(handler.dismiss, handler);
+                $injector.invoke(onExit);
+            });
+        }
+        else {
+            translatedState.onExit = utils_1.safeBind(handler.dismiss, handler);
+        }
+    }
     return translatedState;
 }
 function extractViewData(viewModel) {
@@ -912,14 +972,154 @@ function extractViewData(viewModel) {
     return data;
 }
 
-},{"../di":"tng/di","../reflection":"tng/reflection","../utils":"tng/utils","../view":"tng/view","./events":1}],"tng/ui-router":[function(require,module,exports){
+},{"../di":"tng/di","../reflection":"tng/reflection","../ui-bootstrap/modal":"tng/ui/bootstrap/modal","../utils":"tng/utils","../view":"tng/view","./events":2}],"tng/ui-router":[function(require,module,exports){
 var routes_1 = require('./ui-router/routes');
 exports.Routes = routes_1.Routes;
 var states_1 = require('./ui-router/states');
 exports.States = states_1.States;
 
-},{"./ui-router/routes":"tng/ui-router/routes","./ui-router/states":"tng/ui-router/states"}],"tng/utils":[function(require,module,exports){
-/// <reference path="./_references" />
+},{"./ui-router/routes":"tng/ui-router/routes","./ui-router/states":"tng/ui-router/states"}],"tng/ui/bootstrap/modal":[function(require,module,exports){
+/// <reference path="../_references.ts" />
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") return Reflect.decorate(decorators, target, key, desc);
+    switch (arguments.length) {
+        case 2: return decorators.reduceRight(function(o, d) { return (d && d(o)) || o; }, target);
+        case 3: return decorators.reduceRight(function(o, d) { return (d && d(target, key)), void 0; }, void 0);
+        case 4: return decorators.reduceRight(function(o, d) { return (d && d(target, key, o)) || o; }, desc);
+    }
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var assert_1 = require('../assert');
+var di_1 = require('../di');
+var utils_1 = require('../utils');
+var reflection_1 = require('../reflection');
+var modal_view_1 = require('./modal-view');
+var modal_view_2 = require('./modal-view');
+exports.ModalView = modal_view_2.ModalView;
+exports.ModalBackdrop = modal_view_2.ModalBackdrop;
+var ModalAnnotation = (function () {
+    function ModalAnnotation(options) {
+        this.scope = void 0;
+        this.bindToController = true;
+        this.keyboard = true;
+        this.dismissAll = true;
+        this.resolve = null;
+        utils_1.setIfInterface(this, options);
+    }
+    return ModalAnnotation;
+})();
+exports.ModalAnnotation = ModalAnnotation;
+exports.Modal = utils_1.makeDecorator(ModalAnnotation);
+var ModalHandler = (function () {
+    function ModalHandler(modalNotes, viewNotes, settings) {
+        this.modalNotes = modalNotes;
+        this.viewNotes = viewNotes;
+        this.settings = settings;
+        this.instance = null;
+    }
+    ModalHandler.prototype.open = function ($injector, $modal, $modalStack) {
+        var view = this.viewNotes;
+        var modal = this.modalNotes;
+        var calltimeSettings = angular.copy(this.settings);
+        if (modal.dismissAll) {
+            $modalStack.dismissAll();
+        }
+        if (utils_1.isDefined(modal.scope)) {
+            calltimeSettings.scope = utils_1.isFunction(modal.scope) ?
+                $injector.invoke(modal.scope) :
+                modal.scope;
+        }
+        if (utils_1.isDefined(view.template)) {
+            calltimeSettings.template = utils_1.isFunction(view.template) ?
+                $injector.invoke(view.template) :
+                view.template;
+        }
+        if (utils_1.isDefined(view.templateUrl)) {
+            calltimeSettings.templateUrl = utils_1.isFunction(view.templateUrl) ?
+                $injector.invoke(view.templateUrl) :
+                view.templateUrl;
+        }
+        this.instance = $modal.open(calltimeSettings);
+        return this.instance;
+    };
+    ModalHandler.prototype.dismiss = function ($modalStack) {
+        if (this.modalNotes.dismissAll) {
+            $modalStack.dismissAll();
+        }
+        else {
+            this.instance.dismiss();
+        }
+    };
+    Object.defineProperty(ModalHandler.prototype, "open",
+        __decorate([
+            __param(0, di_1.Inject('$injector')),
+            __param(1, di_1.Inject('$modal')),
+            __param(2, di_1.Inject('$modalStack'))
+        ], ModalHandler.prototype, "open", Object.getOwnPropertyDescriptor(ModalHandler.prototype, "open")));
+    Object.defineProperty(ModalHandler.prototype, "dismiss",
+        __decorate([
+            __param(0, di_1.Inject('$modalStack'))
+        ], ModalHandler.prototype, "dismiss", Object.getOwnPropertyDescriptor(ModalHandler.prototype, "dismiss")));
+    return ModalHandler;
+})();
+exports.ModalHandler = ModalHandler;
+function getModalHandler(modalClass) {
+    var modalNotes = reflection_1.getAnnotations(modalClass, ModalAnnotation);
+    var viewNotes = reflection_1.getAnnotations(modalClass, modal_view_1.ModalViewAnnotation);
+    assert_1.assert(modalNotes, 'Missing @Modal decoration');
+    assert_1.assert(viewNotes, 'Missing @ModalView decoration');
+    var settings = {
+        controller: modalClass
+    };
+    var modal = {};
+    reflection_1.mergeAnnotations.apply(void 0, [modal].concat(modalNotes));
+    if (utils_1.isDefined(modal.bindToController)) {
+        settings.bindToController = modal.bindToController;
+    }
+    if (utils_1.isDefined(modal.keyboard)) {
+        settings.keyboard = modal.keyboard;
+    }
+    var view = {};
+    reflection_1.mergeAnnotations.apply(void 0, [view].concat(viewNotes));
+    if (utils_1.isDefined(view.animation)) {
+        settings.animation = view.animation;
+    }
+    if (utils_1.isDefined(view.backdrop)) {
+        settings.backdrop = modal_view_1.MODAL_BACKDROP_MAP[view.backdrop];
+    }
+    if (utils_1.isDefined(view.backdropClass)) {
+        settings.backdropClass = view.backdropClass;
+    }
+    if (utils_1.isDefined(view.keyboard)) {
+        settings.keyboard = view.keyboard;
+    }
+    if (utils_1.isDefined(view.windowClass)) {
+        settings.windowClass = view.windowClass;
+    }
+    if (utils_1.isDefined(view.windowTemplateUrl)) {
+        settings.windowTemplateUrl = view.windowTemplateUrl;
+    }
+    if (utils_1.isDefined(view.size)) {
+        settings.size = view.size;
+    }
+    if (utils_1.isDefined(view.controllerAs)) {
+        settings.controllerAs = view.controllerAs;
+    }
+    return new ModalHandler(modal, view, settings);
+}
+exports.getModalHandler = getModalHandler;
+
+},{"../assert":"tng/assert","../di":"tng/di","../reflection":"tng/reflection","../utils":"tng/utils","./modal-view":1}],"tng/ui/bootstrap":[function(require,module,exports){
+var modal_1 = require('./ui-bootstrap/modal');
+exports.Modal = modal_1.Modal;
+var modal_view_1 = require('./ui-bootstrap/modal-view');
+exports.ModalView = modal_view_1.ModalView;
+exports.ModalBackdrop = modal_view_1.ModalBackdrop;
+
+},{"./ui-bootstrap/modal":"tng/ui/bootstrap/modal","./ui-bootstrap/modal-view":1}],"tng/utils":[function(require,module,exports){
+/// <reference path="./_references.ts" />
 var reflection_1 = require('./reflection');
 exports.isDefined = angular.isDefined;
 exports.isString = angular.isString;
@@ -1129,7 +1329,7 @@ function publishValue(value, ngModule, name) {
 exports.publishValue = publishValue;
 
 },{"./assert":"tng/assert"}],"tng/view":[function(require,module,exports){
-/// <reference path="./_references" />
+/// <reference path="./_references.ts" />
 var assert_1 = require('./assert');
 var utils_1 = require('./utils');
 var ViewAnnotation = (function () {
