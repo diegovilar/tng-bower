@@ -13,7 +13,7 @@ declare module "tng" {
 	export {Decorator} from "tng/decorator"
 	export {View} from "tng/view"
 	export {ComponentView, ComponentTemplateNamespace} from "tng/component-view"
-	export {Directive, Transclusion} from "tng/directive"
+	export {Directive, Transclusion, Bind} from "tng/directive"
 	export {Component} from "tng/component"
 	export {Module, publishModule} from "tng/module"
 	export {Application} from "tng/application"
@@ -129,6 +129,8 @@ declare module "tng/filter" {
 	     * ask the injector for this name plus the suffix "Filter".
 	     */
 	    name: string;
+
+		stateful?: boolean;
 
 	}
 
@@ -393,11 +395,11 @@ declare module "tng/directive" {
 	export interface CommonDirectiveOptions {
 	    selector: string;
 	    scope?: boolean|StringMap;
-	    bind?: boolean|StringMap;
+	    bindToController?: boolean;
 	    require?: string[];
 	    transclude?: Transclusion;
 	    compile?: CompileFunction|FunctionReturningPrePost;
-	    link?: FunctionReturningNothing|PrePost;
+	    link?: FunctionReturningNothing|PrePost|string;
 	}
 
 	/**
@@ -421,6 +423,11 @@ declare module "tng/directive" {
 	 */
 	function Directive(options: DirectiveOptions): ClassDecorator;
 
+    /**
+     * A decorator to annotate a property as being a binding to the controller
+     */
+    function Bind(binding: string): PropertyDecorator;
+
 	export function publishDirective(directiveClass: Function, ngModule: ng.IModule, selector?: string): ng.IModule;
 
 }
@@ -428,6 +435,7 @@ declare module "tng/directive" {
 declare module "tng/component" {
 
 	import {Directive, CommonDirectiveOptions} from "tng/directive";
+	export  {Bind} from "tng/directive";
 
 	/**
 	 * TODO document
@@ -443,10 +451,16 @@ declare module "tng/component" {
 
 	}
 
+    interface ComponentDecoratorType {
+        (options: ComponentOptions): ClassDecorator;
+        // extends: any;
+    }
+
 	/**
 	 * A decorator to annotate a class as being a component controller
 	 */
-	function Component(options: ComponentOptions): ClassDecorator;
+	// function Component(options: ComponentOptions): ClassDecorator;
+    export var Component: ComponentDecoratorType;
 
 	export function publishComponent(componentClass: Function, ngModule: ng.IModule, selector?: string): ng.IModule;
 
@@ -571,21 +585,3 @@ declare module "tng/bootstrap" {
 	// export function bootstrap(moduleClass: Function, selector: string): ng.auto.IInjectorService;
 
 }
-
-
-
-// ----------------------------------------------------------------------------
-// Private API
-// ----------------------------------------------------------------------------
-
-// declare module 'tng/reflection' {
-
-// 	export function getAnnotations(target: any, type?: Function, key?: string): any[];
-
-// 	export function setAnnotations(target: any, annotations: any[], key?: string): void;
-
-// 	export function addAnnotation(target: any, annotation: any, key?: string): void;
-
-// 	export function hasAnnotation(target: any, type?: Function, key?: string): boolean;
-
-// }
