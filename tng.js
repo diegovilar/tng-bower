@@ -675,8 +675,7 @@ To process a module is to:
 var assert_1 = require('./assert');
 var reflection_1 = require('./reflection');
 var module_1 = require('./module');
-// export function bootstrap(moduleClass: ModuleConstructor, selector: string): ng.auto.IInjectorService;
-function bootstrap(moduleClass, element) {
+function bootstrap(moduleClass, element, dependencies, constructorParameters) {
     // Reflect.decorate apply decorators reversely, so we need to reverse
     // the extracted annotations before merging them
     // var aux = getAnnotations(moduleClass, ModuleAnnotation).reverse();
@@ -687,7 +686,7 @@ function bootstrap(moduleClass, element) {
     element = element || annotation.element;
     // TODO debug only?
     assert_1.assert(element, 'element must be provided');
-    var ngModule = module_1.publishModule(moduleClass);
+    var ngModule = module_1.publishModule(moduleClass, null, dependencies, constructorParameters);
     return angular.bootstrap(element, [ngModule.name]);
 }
 exports.bootstrap = bootstrap;
@@ -752,7 +751,7 @@ var __extends = (this && this.__extends) || function (d, b) {
 };
 var assert_1 = require('./assert');
 var di_1 = require('./di');
-var utils_1 = require('./utils');
+var utils_1 = require("./utils");
 var reflection_1 = require('./reflection');
 var view_1 = require('./view');
 var component_view_1 = require('./component-view');
@@ -805,7 +804,10 @@ function makeComponentDO(componentClass) {
         cdo.controllerAs = view.controllerAs;
     if (utils_1.isDefined(view.namespace))
         cdo.templateNamespace = component_view_1.NAMESPACE_MAP[view.namespace];
-    // TODO styleUrl
+    if (utils_1.isDefined(view.styles)) {
+        cdo.styles = typeof view.styles === "string" ? [view.styles] : view.styles;
+    }
+    // else if (isDefined(view.stylesUrls)) cdo.stylesUrls = view.stylesUrls;
     if (utils_1.isDefined(view.template))
         cdo.template = view.template;
     else if (utils_1.isDefined(view.templateUrl))
@@ -845,6 +847,14 @@ exports.inFactory = inFactory;
 function makeComponentFactory(componentClass) {
     var cdo = makeComponentDO(componentClass);
     var factory = di_1.injectable(['$injector'], function directiveFactory($injector) {
+        if (cdo.styles) {
+            for (var i = 0; i < cdo.styles.length; i++) {
+                insertStyle(cdo.styles[i], "tng-component_" + cdo.imperativeName + "_" + i);
+            }
+        }
+        // else if (cdo.stylesUrls) {
+        // TODO
+        // }
         return inFactory(directive_2.inFactory(cdo, $injector), $injector);
     });
     return {
@@ -853,6 +863,18 @@ function makeComponentFactory(componentClass) {
     };
 }
 exports.makeComponentFactory = makeComponentFactory;
+function insertStyle(style, id) {
+    id = "#" + id;
+    var head = document.head;
+    if (head.querySelector(id)) {
+        return;
+    }
+    var el = document.createElement("style");
+    el.id = id;
+    el.type = "text/css";
+    el.textContent = style;
+    head.insertBefore(el, head.querySelector("style"));
+}
 },{"./assert":1,"./component-view":"tng/component-view","./di":"tng/di","./directive":"tng/directive","./reflection":2,"./utils":6,"./view":"tng/view"}],"tng/constant":[function(require,module,exports){
 /// <reference path="./_references" />
 // TODO debug only?
@@ -1347,7 +1369,7 @@ function getNewModuleName() {
 /**
  * @internal
  */
-function publishModule(moduleClass, name) {
+function publishModule(moduleClass, name, dependencies, constructorParameters) {
     // Reflect.decorate apply decorators reversely, so we need to reverse
     // the extracted annotations before merging them
     // var aux = getAnnotations(moduleClass, ModuleAnnotation).reverse();
@@ -1369,57 +1391,64 @@ function publishModule(moduleClass, name) {
     var components = [];
     var directives = [];
     var modules = [];
-    // TODO optimize this.. to much reflection queries
-    if (annotation.dependencies) {
-        for (var _i = 0, _a = annotation.dependencies; _i < _a.length; _i++) {
-            var dep = _a[_i];
-            // Regular angular module
-            if (utils_2.isString(dep)) {
-                modules.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, ModuleAnnotation)) {
-                // If the module has alrady been published, we just push it's name
-                // if (publishedAs = Reflect.getOwnMetadata(PUBLISHED_ANNOTATION_KEY, dep)) {
-                // modules.push(publishedAs);
-                // }
-                // else {
-                modules.push(publishModule(dep).name);
-            }
-            else if (dep instanceof constant_1.ConstantWrapper) {
-                constants.push(dep);
-            }
-            else if (dep instanceof value_1.ValueWrapper) {
-                values.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, service_1.ServiceAnnotation)) {
-                services.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, decorator_1.DecoratorAnnotation)) {
-                decorators.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, filter_1.FilterAnnotation)) {
-                filters.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, animation_1.AnimationAnnotation)) {
-                animations.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, component_1.ComponentAnnotation)) {
-                components.push(dep);
-            }
-            else if (reflection_1.hasAnnotation(dep, directive_1.DirectiveAnnotation)) {
-                directives.push(dep);
-            }
-            else {
-                // TODO WTF?
-                throw new Error("I don't recognize what kind of dependency this is: " + dep);
+    // TODO optimize this.. too much reflection queries
+    function processDependency(dep) {
+        // Regular angular module
+        if (utils_2.isString(dep)) {
+            modules.push(dep);
+        }
+        else if (utils_2.isArray(dep)) {
+            for (var _i = 0, _a = dep; _i < _a.length; _i++) {
+                var _dep = _a[_i];
+                processDependency(_dep);
             }
         }
+        else if (reflection_1.hasAnnotation(dep, ModuleAnnotation)) {
+            // If the module has alrady been published, we just push it's name
+            // if (publishedAs = Reflect.getOwnMetadata(PUBLISHED_ANNOTATION_KEY, dep)) {
+            // modules.push(publishedAs);
+            // }
+            // else {
+            modules.push(publishModule(dep).name);
+        }
+        else if (dep instanceof constant_1.ConstantWrapper) {
+            constants.push(dep);
+        }
+        else if (dep instanceof value_1.ValueWrapper) {
+            values.push(dep);
+        }
+        else if (reflection_1.hasAnnotation(dep, service_1.ServiceAnnotation)) {
+            services.push(dep);
+        }
+        else if (reflection_1.hasAnnotation(dep, decorator_1.DecoratorAnnotation)) {
+            decorators.push(dep);
+        }
+        else if (reflection_1.hasAnnotation(dep, filter_1.FilterAnnotation)) {
+            filters.push(dep);
+        }
+        else if (reflection_1.hasAnnotation(dep, animation_1.AnimationAnnotation)) {
+            animations.push(dep);
+        }
+        else if (reflection_1.hasAnnotation(dep, component_1.ComponentAnnotation)) {
+            components.push(dep);
+        }
+        else if (reflection_1.hasAnnotation(dep, directive_1.DirectiveAnnotation)) {
+            directives.push(dep);
+        }
+        else {
+            // TODO WTF?
+            throw new Error("I don't recognize what kind of dependency this is: " + dep);
+        }
     }
+    var allDeps = [].concat((annotation.dependencies || []), (dependencies || []));
+    allDeps.forEach(function (dep) { return processDependency(dep); });
     name = name || annotation.name || getNewModuleName();
     // Register the module on Angular
     var ngModule = angular.module(name, modules);
     // Instantiate the module
-    var module = new moduleClass(ngModule);
+    // var module = new moduleClass(ngModule);
+    var module = Object.create(moduleClass.prototype);
+    moduleClass.apply(module, [ngModule].concat(constructorParameters || []));
     // Register config functions
     var configFns = [];
     if (utils_2.isFunction(module.onConfig))
@@ -1430,8 +1459,8 @@ function publishModule(moduleClass, name) {
         else if (utils_2.isArray(annotation.config))
             configFns = configFns.concat(annotation.config);
     }
-    for (var _b = 0; _b < configFns.length; _b++) {
-        var fn = configFns[_b];
+    for (var _i = 0; _i < configFns.length; _i++) {
+        var fn = configFns[_i];
         ngModule.config(fn);
     }
     // Register initialization functions
@@ -1444,42 +1473,42 @@ function publishModule(moduleClass, name) {
         else if (utils_2.isArray(annotation.run))
             runFns = runFns.concat(annotation.run);
     }
-    for (var _c = 0; _c < runFns.length; _c++) {
-        var fn = runFns[_c];
+    for (var _a = 0; _a < runFns.length; _a++) {
+        var fn = runFns[_a];
         ngModule.run(fn);
     }
     states_1.publishStates(moduleClass, ngModule);
     routes_1.registerRoutes(moduleClass, ngModule);
-    for (var _d = 0; _d < values.length; _d++) {
-        var item = values[_d];
+    for (var _b = 0; _b < values.length; _b++) {
+        var item = values[_b];
         value_1.publishValue(item, ngModule);
     }
-    for (var _e = 0; _e < constants.length; _e++) {
-        var item = constants[_e];
+    for (var _c = 0; _c < constants.length; _c++) {
+        var item = constants[_c];
         constant_1.publishConstant(item, ngModule);
     }
-    for (var _f = 0; _f < filters.length; _f++) {
-        var item = filters[_f];
+    for (var _d = 0; _d < filters.length; _d++) {
+        var item = filters[_d];
         filter_1.registerFilter(item, ngModule);
     }
-    for (var _g = 0; _g < animations.length; _g++) {
-        var item = animations[_g];
+    for (var _e = 0; _e < animations.length; _e++) {
+        var item = animations[_e];
         animation_1.registerAnimation(item, ngModule);
     }
-    for (var _h = 0; _h < services.length; _h++) {
-        var item = services[_h];
+    for (var _f = 0; _f < services.length; _f++) {
+        var item = services[_f];
         service_1.publishService(item, ngModule);
     }
-    for (var _j = 0; _j < decorators.length; _j++) {
-        var item = decorators[_j];
+    for (var _g = 0; _g < decorators.length; _g++) {
+        var item = decorators[_g];
         decorator_1.publishDecorator(item, ngModule);
     }
-    for (var _k = 0; _k < components.length; _k++) {
-        var item = components[_k];
+    for (var _h = 0; _h < components.length; _h++) {
+        var item = components[_h];
         component_1.publishComponent(item, ngModule);
     }
-    for (var _l = 0; _l < directives.length; _l++) {
-        var item = directives[_l];
+    for (var _j = 0; _j < directives.length; _j++) {
+        var item = directives[_j];
         directive_1.publishDirective(item, ngModule);
     }
     reflection_1.Reflect.defineMetadata(PUBLISHED_ANNOTATION_KEY, name, moduleClass);
@@ -1979,7 +2008,8 @@ var ViewAnnotation = (function () {
     function ViewAnnotation(options) {
         this.template = void 0;
         this.templateUrl = void 0;
-        this.styleUrl = void 0;
+        this.styles = void 0;
+        // stylesUrls: string[] = void 0;
         this.controllerAs = void 0;
         // TODO debug only?
         assert_1.assert.notNull(options, 'options must not be null');
