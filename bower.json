@@ -1,12 +1,12 @@
 {
   "name": "tng",
-  "version": "1.1.0-rc.1",
+  "version": "1.1.0",
   "main": "./tng.js",
   "ignore": [],
   "dependencies": {
-    "angular": "1.4.12",
+    "angular": "~1.4.12",
     "reflect-metadata": "~0.1.0",
-    "angular-ui-router": "~0.2.15",
-    "angular-bootstrap": "~0.13.3"
+    "angular-ui-router": "0.2.18",
+    "angular-bootstrap": "0.13.3"
   }
 }
